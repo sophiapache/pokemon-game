@@ -146,7 +146,6 @@ const battle = {
 };
 function animate() {
   const animationId = window.requestAnimationFrame(animate);
-  window.requestAnimationFrame(animate);
   background.draw();
   boundaries.forEach((boundary) => {
     boundary.draw();
@@ -199,10 +198,15 @@ function animate() {
             gsap.to("#overlappingDiv", {
               opacity: 1,
               duration: 0.4,
+              onComplete() {
+                // activate a new animation loop
+                animateBattle();
+                gsap.to("#overlappingDiv", {
+                  opacity: 0,
+                  duration: 0.4,
+                });
+              },
             });
-
-            // activate a new animation loop
-            animateBattle();
           },
         });
         break;
@@ -322,10 +326,22 @@ function animate() {
 
 animate();
 
+const battleBackgroundImage = new Image();
+battleBackgroundImage.src = "./img/battleBackground.png";
+const battleBackground = new Sprite({
+  position: {
+    x: 0,
+    y: 0,
+  },
+  image: battleBackgroundImage,
+});
+
 function animateBattle() {
   window.requestAnimationFrame(animateBattle);
-  console.log("animating battle");
+  battleBackground.draw();
 }
+
+// animateBattle();
 
 let lastKey = "";
 
