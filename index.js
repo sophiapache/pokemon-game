@@ -5,12 +5,20 @@ const c = canvas.getContext("2d");
 canvas.width = 1024;
 canvas.height = 576;
 
-// 70 is width of map
-
+// create subarrays of collision data
 const collisionsMap = [];
 for (let i = 0; i < collisions.length; i += 70) {
   collisionsMap.push(collisions.slice(i, 70 + i));
 }
+// 70 is width of map
+
+// create subarrays of battle zone data
+const battleZonesMap = [];
+for (let i = 0; i < battleZonesData.length; i += 70) {
+  battleZonesMap.push(battleZonesData.slice(i, 70 + i));
+}
+
+console.log(battleZonesMap);
 
 const boundaries = [];
 const offset = {
@@ -18,6 +26,7 @@ const offset = {
   y: -650,
 };
 
+// creating collision boundaries
 collisionsMap.forEach((row, i) => {
   row.forEach((symbol, j) => {
     if (symbol === 1025)
@@ -31,6 +40,25 @@ collisionsMap.forEach((row, i) => {
       );
   });
 });
+
+const battleZones = [];
+
+// creating battle zone boundaries
+battleZonesMap.forEach((row, i) => {
+  row.forEach((symbol, j) => {
+    if (symbol === 1025)
+      battleZones.push(
+        new Boundary({
+          position: {
+            x: j * Boundary.width + offset.x,
+            y: i * Boundary.height + offset.y,
+          },
+        })
+      );
+  });
+});
+
+// creating canvas background image
 
 const image = new Image();
 image.src = "./img/Pellet Town.png";
@@ -68,6 +96,8 @@ const player = new Sprite({
   },
 });
 
+// aligning background properly
+
 const background = new Sprite({
   position: {
     x: offset.x,
@@ -84,6 +114,7 @@ const foreground = new Sprite({
   image: foregroundImage,
 });
 
+// keys object for movement
 const keys = {
   w: {
     pressed: false,
@@ -99,7 +130,7 @@ const keys = {
   },
 };
 
-const movables = [background, ...boundaries, foreground];
+const movables = [background, ...boundaries, foreground, ...battleZones];
 
 // checks for collisions
 function rectangularCollision({ rectangle1, rectangle2 }) {
@@ -110,17 +141,76 @@ function rectangularCollision({ rectangle1, rectangle2 }) {
     rectangle1.position.y + rectangle1.height >= rectangle2.position.y
   );
 }
+const battle = {
+  initiated: false,
+};
 function animate() {
+  const animationId = window.requestAnimationFrame(animate);
   window.requestAnimationFrame(animate);
   background.draw();
   boundaries.forEach((boundary) => {
     boundary.draw();
     // checks for collisions
   });
+  battleZones.forEach((battleZone) => {
+    battleZone.draw();
+  });
   player.draw();
   foreground.draw();
   let moving = true;
   player.moving = false;
+
+  if (battle.initiated) return;
+  // activate a battle
+  if (keys.w.pressed || keys.a.pressed || keys.s.pressed || keys.d.pressed) {
+    for (let i = 0; i < battleZones.length; i++) {
+      const battleZone = battleZones[i];
+      const overlappingArea =
+        (Math.min(
+          player.position.x + player.width,
+          battleZone.position.x + battleZone.width
+        ) -
+          Math.max(player.position.x, battleZone.position.x)) *
+        (Math.min(
+          player.position.y + player.height,
+          battleZone.position.y + battleZone.height
+        ) -
+          Math.max(player.position.y, battleZone.position.y));
+      if (
+        rectangularCollision({
+          rectangle1: player,
+          rectangle2: battleZone,
+        }) &&
+        overlappingArea > (player.width * player.height) / 2 &&
+        // chances of battle occurring
+        Math.random() < 0.01
+      ) {
+        console.log("activate battle");
+        // deactivate current animation loop
+        window.cancelAnimationFrame(animationId);
+        battle.initiated = true;
+        // battle activation animation
+        gsap.to("#overlappingDiv", {
+          opacity: 1,
+          repeat: 3,
+          yoyo: true,
+          duration: 0.4,
+          onComplete() {
+            gsap.to("#overlappingDiv", {
+              opacity: 1,
+              duration: 0.4,
+            });
+
+            // activate a new animation loop
+            animateBattle();
+          },
+        });
+        break;
+      }
+    }
+  }
+
+  // detects keydowns
   if (keys.w.pressed && lastKey === "w") {
     player.moving = true;
     player.image = player.sprites.up;
@@ -165,11 +255,11 @@ function animate() {
           },
         })
       ) {
-        console.log("colliding");
         moving = false;
         break;
       }
     }
+
     if (moving)
       movables.forEach((movable) => {
         movable.position.x += 3;
@@ -231,6 +321,12 @@ function animate() {
 }
 
 animate();
+
+function animateBattle() {
+  window.requestAnimationFrame(animateBattle);
+  console.log("animating battle");
+}
+
 let lastKey = "";
 
 addEventListener("keydown", (e) => {
